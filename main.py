@@ -1,51 +1,48 @@
 from fastapi import FastAPI
-from models import Todo
+from pymongo import MongoClient
+from pydantic import BaseModel
 
 app = FastAPI()
 
+# MongoDB Connection
+client = MongoClient("mongodb://localhost:27017/")
+db = client["todo_app"]
+todos_collection = db["todos"]
 
-@app.get("/")
-async def root():
-    return {"message": "Hello World"}
+# Todo Model
 
-todos = [] # empty list
 
+class Todo(BaseModel):
+    item: str
 
 # Get all todos
+
+
 @app.get("/todos")
 async def get_todos():
-    return {"todos": todos}
-
-
-# Get single todo
-@app.get("/todos/{todo_id}")
-async def get_todo(todo_id: int):
-    for todo in todos:
-        if (todo.id == todo_id):
-            return {"todo": todo}
-    return {"message": "No todos have been found!"}
+    todos = list(todos_collection.find({}, {"_id": 0}))
+    return todos
 
 # Create a todo
+
+
 @app.post("/todos")
-async def create_todos(todo: Todo):
-    todos.append(todo)
+async def create_todo(todo: Todo):
+    todos_collection.insert_one(todo.dict())
     return {"message": "Todo has been added"}
 
 # Update a todo
+
+
 @app.put("/todos/{todo_id}")
-async def update_todo(todo_id: int, todo_obj: Todo):
-    for todo in todos:
-        if todo.id == todo_id:
-            todo.id = todo_id
-            todo.item = todo_obj.item
-            return {"todo": todo}
-    return {"message": "No todos found to update"}
+async def update_todo(todo_id: str, todo: Todo):
+    todos_collection.update_one({"_id": todo_id}, {"$set": todo.dict()})
+    return {"message": "Todo has been updated"}
 
 # Delete a todo
+
+
 @app.delete("/todos/{todo_id}")
-async def delete_todos(todo_id: int):
-    for todo in todos:
-        if (todo.id == todo_id):
-            todos.remove(todo)
-            return {"message": "Todo has been deleted"}
-    return {"message": "No todos have been found!"}
+async def delete_todo(todo_id: str):
+    todos_collection.delete_one({"_id": todo_id})
+    return {"message": "Todo has been deleted"}
